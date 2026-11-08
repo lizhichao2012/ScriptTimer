@@ -13,8 +13,6 @@ enum ScriptType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var fileExtension: String { self == .python ? "py" : "sh" }
-
     /// 默认解释器；不以 / 开头的会在用户 PATH 中查找
     var defaultInterpreter: String {
         switch self {
@@ -24,13 +22,24 @@ enum ScriptType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var template: String {
-        switch self {
-        case .zsh, .bash:
-            return "# 在这里编写脚本，例如：\necho \"Hello from ScriptTimer: $(date)\"\n"
-        case .python:
-            return "# 在这里编写脚本，例如：\nfrom datetime import datetime\nprint(f\"Hello from ScriptTimer: {datetime.now()}\")\n"
+    /// 根据首行 #! 和扩展名推断脚本类型
+    static func detect(path: String, firstLine: String?) -> ScriptType {
+        if let line = firstLine, line.hasPrefix("#!") {
+            if line.contains("python") { return .python }
+            if line.contains("bash") { return .bash }
+            if line.contains("zsh") || line.hasSuffix("/sh") || line.contains("/sh ") { return .zsh }
         }
+        switch (path as NSString).pathExtension.lowercased() {
+        case "py": return .python
+        case "bash": return .bash
+        default: return .zsh
+        }
+    }
+
+    static func detect(fileAt path: String) -> ScriptType {
+        let firstLine = (try? String(contentsOfFile: path, encoding: .utf8))?
+            .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init)
+        return detect(path: path, firstLine: firstLine)
     }
 }
 
@@ -73,27 +82,37 @@ struct ScriptTask: Codable, Hashable, Identifiable {
     var enabled = true
     /// 一次性任务执行完成后置为 true
     var completed = false
+    /// 要执行的脚本文件路径（支持 ~）
+    var scriptPath = ""
     var type: ScriptType = .zsh
     /// 为空时使用 type.defaultInterpreter
     var interpreterPath = ""
     var useLoginShell = false
-    /// 为空时为用户主目录
+    /// 为空时为脚本所在目录
     var workingDirectory = ""
     var environment: [EnvVar] = []
     var schedule: Schedule = .daily(hour: 9, minute: 0)
     var notifyOnFailure = true
     var createdAt = Date()
-    /// 脚本正文：单独存储在 scripts/<id>.<ext>，不写入 tasks.json
-    var script = ""
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, enabled, completed, type, interpreterPath, useLoginShell
-        case workingDirectory, environment, schedule, notifyOnFailure, createdAt
-    }
 
     var idString: String { id.uuidString.lowercased() }
-    var label: String { "com.scripttimer.task.\(idString)" }
     var isActive: Bool { enabled && !completed }
+
+    /// 展开 ~ 后的脚本绝对路径
+    var resolvedScriptPath: String {
+        (scriptPath.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
+    }
+
+    /// 检查脚本文件；有问题时返回错误说明
+    var scriptProblem: String? {
+        let path = resolvedScriptPath
+        if path.isEmpty { return "请先选择脚本文件" }
+        var isDir: ObjCBool = false
+        if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) { return "脚本文件不存在：\(path)" }
+        if isDir.boolValue { return "这是一个文件夹，请选择脚本文件：\(path)" }
+        if !FileManager.default.isReadableFile(atPath: path) { return "没有读取权限：\(path)" }
+        return nil
+    }
 }
 
 extension ScriptTask {
@@ -104,6 +123,7 @@ extension ScriptTask {
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? defaults.name
         enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? defaults.enabled
         completed = try c.decodeIfPresent(Bool.self, forKey: .completed) ?? defaults.completed
+        scriptPath = try c.decodeIfPresent(String.self, forKey: .scriptPath) ?? ""
         type = try c.decodeIfPresent(ScriptType.self, forKey: .type) ?? defaults.type
         interpreterPath = try c.decodeIfPresent(String.self, forKey: .interpreterPath) ?? ""
         useLoginShell = try c.decodeIfPresent(Bool.self, forKey: .useLoginShell) ?? false

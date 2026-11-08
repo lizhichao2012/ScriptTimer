@@ -36,7 +36,15 @@ final class ScriptRunner: @unchecked Sendable {
 
     private func workingDirectory(for task: ScriptTask) -> URL {
         let dir = (task.workingDirectory.trimmingCharacters(in: .whitespaces) as NSString).expandingTildeInPath
-        return URL(fileURLWithPath: dir.isEmpty ? NSHomeDirectory() : dir, isDirectory: true)
+        if !dir.isEmpty { return URL(fileURLWithPath: dir, isDirectory: true) }
+        // 默认在脚本所在目录执行，脚本里的相对路径才能正常工作
+        let scriptDir = URL(fileURLWithPath: task.resolvedScriptPath).deletingLastPathComponent()
+        var isDir: ObjCBool = false
+        if !task.resolvedScriptPath.isEmpty,
+           FileManager.default.fileExists(atPath: scriptDir.path, isDirectory: &isDir), isDir.boolValue {
+            return scriptDir
+        }
+        return URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     }
 
     /// 启动一次执行；脚本结束后在任意线程回调 onExit
@@ -44,6 +52,8 @@ final class ScriptRunner: @unchecked Sendable {
         guard let runnerPath = Bundle.main.path(forResource: "runner", ofType: "sh") else {
             throw ScheduleError("App 包内缺少 runner.sh")
         }
+        // 脚本文件缺失时不在这里报错：交给 runner.sh 记入运行历史（并按设置发送通知），
+        // 避免高频任务每次到点都弹窗
         let workDir = workingDirectory(for: task)
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: workDir.path, isDirectory: &isDir), isDir.boolValue else {
@@ -57,7 +67,7 @@ final class ScriptRunner: @unchecked Sendable {
             runnerPath,
             task.idString,
             task.name,
-            store.scriptURL(for: task).path,
+            task.resolvedScriptPath,
             task.useLoginShell ? "1" : "0",
             task.notifyOnFailure ? "1" : "0",
             manual ? "1" : "0",

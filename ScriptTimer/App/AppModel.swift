@@ -200,6 +200,8 @@ final class AppModel {
     func statusText(_ task: ScriptTask) -> String {
         if running.contains(task.id) { return "运行中…" }
         if task.completed { return "已完成" }
+        if task.scriptPath.isEmpty { return "未选择脚本文件" }
+        if task.isActive, task.scriptProblem != nil { return "⚠️ 脚本文件不存在" }
         if !task.enabled {
             if let date = task.schedule.onceDate, date <= Date() { return "已停用（时间已过）" }
             return "已停用"
@@ -237,10 +239,8 @@ final class AppModel {
     func addTask() {
         var task = ScriptTask()
         task.name = "新任务 \(tasks.count + 1)"
-        task.script = task.type.template
         task.enabled = false
         tasks.append(task)
-        do { try store.writeScript(task) } catch { errorMessage = error.localizedDescription }
         persist()
         selection = task.id
     }
@@ -268,10 +268,12 @@ final class AppModel {
 
         do {
             _ = try task.schedule.trigger()
+            if task.isActive, let problem = task.scriptProblem {
+                throw ScheduleError(problem)
+            }
             if task.isActive, let date = task.schedule.onceDate, date <= Date() {
                 throw ScheduleError("执行时间已经过去，请选择将来的时间")
             }
-            try store.writeScript(task)
         } catch {
             errorMessage = error.localizedDescription
             return false
@@ -291,6 +293,7 @@ final class AppModel {
         var task = tasks[i]
         if enabled {
             do {
+                if let problem = task.scriptProblem { throw ScheduleError(problem) }
                 _ = try task.schedule.trigger()
                 if let date = task.schedule.onceDate, date <= Date() {
                     throw ScheduleError("一次性任务的执行时间已经过去，请先修改时间")
@@ -321,6 +324,10 @@ final class AppModel {
 
     func runNow(_ id: UUID) {
         guard let task = task(id) else { return }
+        if let problem = task.scriptProblem {
+            errorMessage = problem
+            return
+        }
         if running.contains(id) {
             errorMessage = "「\(task.name)」正在运行中，请等它结束后再试。"
             return

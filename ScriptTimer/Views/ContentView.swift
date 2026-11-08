@@ -44,7 +44,7 @@ struct ContentView: View {
                 model.deleteCandidate = nil
             }
         } message: {
-            Text("脚本、定时设置和运行日志都会被删除，且无法恢复。")
+            Text("任务设置和运行日志会被删除，脚本文件本身不受影响。")
         }
     }
 }
