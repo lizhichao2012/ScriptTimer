@@ -9,3 +9,4 @@ ScriptTimer.xcodeproj/
 xcuserdata/
 *.xcuserstate
 .DS_Store
+dist/

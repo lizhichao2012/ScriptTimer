@@ -30,7 +30,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: ScriptTimer
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
-        # 必须关闭沙盒：需要写 ~/Library/LaunchAgents、调用 launchctl、执行任意脚本
+        # 必须关闭沙盒：需要执行用户任意路径下的脚本
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: NO
   ScriptTimerTests:

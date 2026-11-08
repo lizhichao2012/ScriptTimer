@@ -9,18 +9,31 @@ macOS 上的定时脚本工具：选择一个 Shell / Python 脚本文件，设�
 - 重复方式：仅一次 / 每隔 N 分钟·小时 / 每天 / 每周几 / 每月几号 / Cron 表达式
 - 失败时可发送系统通知；每个任务保留最近 50 份日志
 
-## 安装
+## 下载安装
+
+1. 到 [Releases](https://github.com/lizhichao2012/ScriptTimer/releases/latest) 下载 `ScriptTimer-x.y.z.dmg`（支持 Apple 芯片和 Intel，macOS 14 及以上）
+2. 打开 DMG，把 **ScriptTimer** 拖到 **Applications** 文件夹
+3. 首次打开：App 没有经过 Apple 公证，macOS 会提示“无法验证开发者”或“已损坏”。任选一种方式放行：
+   - 先双击打开一次（会被拦截），然后到 **系统设置 → 隐私与安全性**，在页面下方点 **仍要打开**
+   - 或在终端执行：
+     ```sh
+     xattr -dr com.apple.quarantine /Applications/ScriptTimer.app
+     ```
+
+之后即可正常打开，无需重复操作。
+
+## 从源码构建
 
 ```sh
 brew install xcodegen   # 如未安装
-./scripts/build.sh      # 构建 Release、签名并安装到 /Applications
+./scripts/build.sh      # 构建 Release、签名并安装到本机 /Applications
+./scripts/release.sh    # 打包分发版本：dist/ScriptTimer-<版本>.dmg / .zip（通用二进制）
 ```
 
 开发：`xcodegen generate` 后用 Xcode 打开 `ScriptTimer.xcodeproj`。
 测试：`xcodebuild -project ScriptTimer.xcodeproj -scheme ScriptTimer -destination 'platform=macOS' test`
 
-发给其他 Mac：对方首次需右键 →“打开”，或执行 `xattr -dr com.apple.quarantine /Applications/ScriptTimer.app`。
-若要无提示分发，需要 Apple Developer 账号做 Developer ID 签名和公证。App 关闭了沙盒，无法上架 Mac App Store。
+App 使用 ad-hoc 签名；若要无提示分发，需要 Apple Developer 账号做 Developer ID 签名和公证。App 关闭了沙盒，无法上架 Mac App Store。
 
 ## 工作原理
 
