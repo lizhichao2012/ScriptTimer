@@ -1,0 +1,55 @@
+name: ScriptTimer
+options:
+  bundleIdPrefix: com.scripttimer
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+targets:
+  ScriptTimer:
+    type: application
+    platform: macOS
+    sources:
+      - path: ScriptTimer
+        excludes:
+          - "Resources/**"
+      - path: ScriptTimer/Resources/runner.sh
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.scripttimer.app
+        PRODUCT_NAME: ScriptTimer
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: ScriptTimer
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        # 必须关闭沙盒：需要写 ~/Library/LaunchAgents、调用 launchctl、执行任意脚本
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+  ScriptTimerTests:
+    type: bundle.unit-test
+    platform: macOS
+    # 不依赖宿主 App（避免测试时启动 App 去改动真实的 LaunchAgents），直接编译纯逻辑源码
+    sources:
+      - ScriptTimerTests
+      - ScriptTimer/Models
+      - ScriptTimer/Schedule
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.scripttimer.tests
+schemes:
+  ScriptTimer:
+    build:
+      targets:
+        ScriptTimer: all
+    test:
+      targets:
+        - ScriptTimerTests
